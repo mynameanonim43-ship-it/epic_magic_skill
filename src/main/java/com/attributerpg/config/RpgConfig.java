@@ -198,10 +198,10 @@ public final class RpgConfig {
         WIS_IRONS_MANA_REGEN_PER_POINT = BUILDER
                 .comment(
                         "[Soft Dependency: Iron's Spells 'n Spellbooks] Mana Regeneration multiplier (irons_spellbooks:mana_regeneration) per 1 point of WIS.",
-                        "Uses MULTIPLY_BASE: 0.02 = +2.0% Mana Regeneration per point.",
-                        "Default: 0.02 | Range: 0.0 ~ 10.0"
+                        "Uses MULTIPLY_BASE: 0.005 = +0.5% Mana Regeneration per point (max +50% at level 100).",
+                        "Default: 0.005 | Range: 0.0 ~ 10.0"
                 )
-                .defineInRange("ironsManaRegenMultiplierPerPoint", 0.02D, 0.0D, 10.0D);
+                .defineInRange("ironsManaRegenMultiplierPerPoint", 0.005D, 0.0D, 10.0D);
         BUILDER.pop();
 
         // --- 8. Luck (LUK) ---
@@ -280,7 +280,7 @@ public final class RpgConfig {
     }
 
     public static double getWisManaRegenMultiplier() {
-        return SPEC.isLoaded() ? WIS_IRONS_MANA_REGEN_PER_POINT.get() : 0.02D;
+        return SPEC.isLoaded() ? WIS_IRONS_MANA_REGEN_PER_POINT.get() : 0.005D;
     }
 
     public static double getLukVanillaLuck() {
