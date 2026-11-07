@@ -1,0 +1,20 @@
+================================================================================
+CREDITS - Attribute RPG & Leveling (Epic Magic Skill)
+================================================================================
+
+Owner & Lead Developer:
+  - Dzarrin
+
+Project:
+  - Attribute RPG & Leveling (Epic Magic Skill)
+  - Minecraft Forge 1.20.1
+
+Description:
+  Production-ready RPG attribute leveling mod integrating Vanilla Minecraft XP,
+  Epic Fight, and Iron's Spells 'n Spellbooks.
+
+Special Thanks:
+  - Minecraft Forge Team (LexManos, cpw, and the Forge Community)
+  - Epic Fight Mod Team (yesman) for the combat integration API
+  - Iron's Spells 'n Spellbooks Mod Team (Iron431) for the magic attributes API
+================================================================================

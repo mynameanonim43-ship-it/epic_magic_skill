@@ -1,0 +1,12 @@
+{
+  "key.categories.attributerpg": "Attribute RPG & Leveling",
+  "key.attributerpg.open_character_gui": "Open RPG Character Screen",
+  "gui.attributerpg.character_screen.title": "RPG Character Attributes",
+  "gui.attributerpg.reset_points": "Reset",
+  "gui.attributerpg.reset_points.tooltip": "Reset pending unapplied points back to available pool",
+  "gui.attributerpg.apply_points": "Apply",
+  "gui.attributerpg.apply_points.tooltip": "Permanently save and lock allocated points. Once applied, points cannot be reset!",
+  "attribute.name.attributerpg.ranged_damage_bonus": "Ranged Damage Bonus",
+  "attribute.name.attributerpg.projectile_speed_bonus": "Projectile Speed Multiplier",
+  "attribute.name.attributerpg.crit_drop_multiplier": "Critical Loot Drop Rate"
+}
