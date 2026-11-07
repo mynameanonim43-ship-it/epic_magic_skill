@@ -43,19 +43,19 @@ public class RpgCharacterScreen extends Screen {
     private static final int ROW_HEIGHT = 24;
     private static final int ROW_SPACING = 3;
 
-    // Modern Dark Theme Color Palette (ARGB)
-    private static final int COLOR_BG_OUTER_BORDER = 0xFF3A3F54;
-    private static final int COLOR_BG_MAIN = 0xF212151E;
-    private static final int COLOR_BG_HEADER = 0xFF1B2030;
-    private static final int COLOR_BG_SUBPANEL = 0xFF181C28;
-    private static final int COLOR_BG_ROW_EVEN = 0xFF1E2333;
-    private static final int COLOR_BG_ROW_ODD = 0xFF23293B;
-    private static final int COLOR_BORDER_SUBTLE = 0xFF2E354B;
-    private static final int COLOR_ACCENT_GOLD = 0xFFFFC857;
-    private static final int COLOR_TEXT_PRIMARY = 0xFFF0F4F8;
-    private static final int COLOR_TEXT_SECONDARY = 0xFF9AA5B1;
-    private static final int COLOR_TEXT_POINTS = 0xFF5CE65C;
-    private static final int COLOR_TEXT_PENDING = 0xFF55FFFF;
+    // Pure Ultra-Dark / Pitch Black Theme Palette (ARGB)
+    private static final int COLOR_BG_OUTER_BORDER = 0xFF222222; // Minimalist dark gray outer border
+    private static final int COLOR_BG_MAIN = 0xFA08080A;         // Deep near-pitch black body
+    private static final int COLOR_BG_HEADER = 0xFF0D0D10;       // Dark black header & footer
+    private static final int COLOR_BG_SUBPANEL = 0xFF0A0A0D;     // Dark inner containers
+    private static final int COLOR_BG_ROW_EVEN = 0xFF101014;     // Pitch black row alternate 1
+    private static final int COLOR_BG_ROW_ODD = 0xFF141418;      // Pitch black row alternate 2
+    private static final int COLOR_BORDER_SUBTLE = 0xFF1F1F24;   // Subtle separator lines
+    private static final int COLOR_TEXT_PRIMARY = 0xFFFFFFFF;    // Brilliant pure white text
+    private static final int COLOR_TEXT_SECONDARY = 0xFFE0E0E0;  // Bright clean white-silver text
+    private static final int COLOR_TEXT_VALUE = 0xFFFFFFFF;      // Brilliant pure white numbers
+    private static final int COLOR_TEXT_POINTS = 0xFF55FF55;     // Bright neon green
+    private static final int COLOR_TEXT_PENDING = 0xFF55FFFF;    // Bright neon cyan
 
     private int leftPos;
     private int topPos;
@@ -304,7 +304,7 @@ public class RpgCharacterScreen extends Screen {
                     player.getName().getString(),
                     boxX + LEFT_BOX_WIDTH / 2,
                     boxY + 6,
-                    COLOR_ACCENT_GOLD
+                    COLOR_TEXT_PRIMARY
             );
 
             int modelCenterX = boxX + LEFT_BOX_WIDTH / 2;
@@ -353,7 +353,7 @@ public class RpgCharacterScreen extends Screen {
 
             graphics.drawString(this.font, rowHeader, textX, textY, COLOR_TEXT_PRIMARY, true);
             int valueX = textX + this.font.width(rowHeader);
-            graphics.drawString(this.font, String.valueOf(appliedValue), valueX, textY, COLOR_ACCENT_GOLD, true);
+            graphics.drawString(this.font, String.valueOf(appliedValue), valueX, textY, COLOR_TEXT_VALUE, true);
 
             // Display pending addition "+N" in cyan if present
             if (pending > 0) {
