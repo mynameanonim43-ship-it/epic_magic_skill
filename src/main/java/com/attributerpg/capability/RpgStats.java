@@ -9,15 +9,19 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Default implementation of {@link IRpgStats} storing Status Points, Highest Level Achieved,
- * and allocated attribute levels.
+ * Default implementation of {@link IRpgStats} storing independent RPG Level, RPG Exp,
+ * Status Points, and allocated attribute levels.
  */
 public class RpgStats implements IRpgStats {
 
+    private static final String NBT_RPG_LEVEL = "RpgLevel";
+    private static final String NBT_RPG_EXP = "RpgExp";
     private static final String NBT_STATUS_POINTS = "StatusPoints";
     private static final String NBT_HIGHEST_LEVEL = "HighestLevelAchieved";
     private static final String NBT_ATTRIBUTES_TAG = "AllocatedAttributes";
 
+    private int rpgLevel = 1;
+    private int rpgExp = 0;
     private int statusPoints = 0;
     private int highestLevelAchieved = 0;
     private final EnumMap<RpgAttributeType, Integer> attributes = new EnumMap<>(RpgAttributeType.class);
@@ -26,6 +30,46 @@ public class RpgStats implements IRpgStats {
         for (RpgAttributeType type : RpgAttributeType.values()) {
             attributes.put(type, 0);
         }
+    }
+
+    @Override
+    public int getRpgLevel() {
+        return Math.max(1, rpgLevel);
+    }
+
+    @Override
+    public void setRpgLevel(int level) {
+        this.rpgLevel = Math.max(1, level);
+    }
+
+    @Override
+    public int getRpgExp() {
+        return Math.max(0, rpgExp);
+    }
+
+    @Override
+    public void setRpgExp(int exp) {
+        this.rpgExp = Math.max(0, exp);
+    }
+
+    @Override
+    public int addRpgExp(int exp) {
+        if (exp <= 0) {
+            return 0;
+        }
+        this.rpgExp += exp;
+        int levelsGained = 0;
+        int needed = IRpgStats.getExpNeededForLevel(this.rpgLevel);
+
+        while (this.rpgExp >= needed) {
+            this.rpgExp -= needed;
+            this.rpgLevel++;
+            levelsGained++;
+            this.statusPoints += RpgConfig.getStatusPointsPerLevel();
+            needed = IRpgStats.getExpNeededForLevel(this.rpgLevel);
+        }
+
+        return levelsGained;
     }
 
     @Override
@@ -68,7 +112,6 @@ public class RpgStats implements IRpgStats {
         if (this.statusPoints <= 0 || type == null) {
             return false;
         }
-        // Prevent allocating into hidden attributes if their soft-dependency mod is not loaded
         if (!type.isVisibleInGui()) {
             return false;
         }
@@ -99,6 +142,8 @@ public class RpgStats implements IRpgStats {
 
     @Override
     public void copyFrom(IRpgStats source) {
+        this.rpgLevel = source.getRpgLevel();
+        this.rpgExp = source.getRpgExp();
         this.statusPoints = source.getStatusPoints();
         this.highestLevelAchieved = source.getHighestLevelAchieved();
         for (RpgAttributeType type : RpgAttributeType.values()) {
@@ -108,6 +153,8 @@ public class RpgStats implements IRpgStats {
 
     @Override
     public void saveNBTData(CompoundTag nbt) {
+        nbt.putInt(NBT_RPG_LEVEL, this.rpgLevel);
+        nbt.putInt(NBT_RPG_EXP, this.rpgExp);
         nbt.putInt(NBT_STATUS_POINTS, this.statusPoints);
         nbt.putInt(NBT_HIGHEST_LEVEL, this.highestLevelAchieved);
 
@@ -120,6 +167,15 @@ public class RpgStats implements IRpgStats {
 
     @Override
     public void loadNBTData(CompoundTag nbt) {
+        if (nbt.contains(NBT_RPG_LEVEL)) {
+            this.rpgLevel = Math.max(1, nbt.getInt(NBT_RPG_LEVEL));
+        } else {
+            // Migration for existing saves that had highestLevelAchieved
+            int legacyLevel = nbt.getInt(NBT_HIGHEST_LEVEL);
+            this.rpgLevel = Math.max(1, legacyLevel > 0 ? legacyLevel : 1);
+        }
+
+        this.rpgExp = Math.max(0, nbt.getInt(NBT_RPG_EXP));
         this.statusPoints = Math.max(0, nbt.getInt(NBT_STATUS_POINTS));
         this.highestLevelAchieved = Math.max(0, nbt.getInt(NBT_HIGHEST_LEVEL));
 

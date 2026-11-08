@@ -82,10 +82,10 @@ public final class RpgConfig {
         BUILDER.push("leveling");
         STATUS_POINTS_PER_LEVEL = BUILDER
                 .comment(
-                        "Number of Status Points granted every time a player reaches a new highest Vanilla XP level.",
-                        "Default: 5 | Range: 1 ~ 100"
+                        "Number of Status Points granted every time a player reaches a new RPG Level.",
+                        "Default: 4 | Range: 1 ~ 100"
                 )
-                .defineInRange("statusPointsPerLevel", 5, 1, 100);
+                .defineInRange("statusPointsPerLevel", 4, 1, 100);
 
         MAX_ATTRIBUTE_CAP = BUILDER
                 .comment(
@@ -228,7 +228,7 @@ public final class RpgConfig {
     }
 
     public static int getStatusPointsPerLevel() {
-        return SPEC.isLoaded() ? STATUS_POINTS_PER_LEVEL.get() : 5;
+        return SPEC.isLoaded() ? STATUS_POINTS_PER_LEVEL.get() : 4;
     }
 
     public static int getMaxAttributeCap() {

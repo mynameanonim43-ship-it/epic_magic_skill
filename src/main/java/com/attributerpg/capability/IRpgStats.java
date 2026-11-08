@@ -6,9 +6,59 @@ import net.minecraft.nbt.CompoundTag;
 import java.util.Map;
 
 /**
- * Capability interface representing a player's persistent RPG leveling and attribute data.
+ * Capability interface representing a player's persistent RPG leveling, EXP, and attribute data.
+ * The RPG Level and RPG Experience are completely independent from Vanilla Experience/Deaths/Enchanting.
  */
 public interface IRpgStats {
+
+    /**
+     * @return The player's persistent RPG Level (starts at 1).
+     */
+    int getRpgLevel();
+
+    /**
+     * Sets the player's persistent RPG Level.
+     */
+    void setRpgLevel(int level);
+
+    /**
+     * @return The player's current RPG Experience points towards the next level.
+     */
+    int getRpgExp();
+
+    /**
+     * Sets the player's current RPG Experience points.
+     */
+    void setRpgExp(int exp);
+
+    /**
+     * Adds RPG experience points. If enough exp is accumulated to reach the next level,
+     * levels up the player, awards Status Points, and carries over leftover exp.
+     *
+     * @param exp Points of experience gained.
+     * @return Number of level-ups triggered.
+     */
+    int addRpgExp(int exp);
+
+    /**
+     * Calculates the experience required to level up from the specified RPG Level.
+     * Matches Vanilla Minecraft's progressive scaling (each level gets progressively harder):
+     * - Level 1 to 15:  2 * Level + 7
+     * - Level 16 to 30: 5 * Level - 38
+     * - Level 31+:      9 * Level - 158
+     */
+    static int getExpNeededForLevel(int level) {
+        if (level <= 0) {
+            return 7;
+        }
+        if (level <= 15) {
+            return 2 * level + 7;
+        } else if (level <= 30) {
+            return 5 * level - 38;
+        } else {
+            return 9 * level - 158;
+        }
+    }
 
     /**
      * @return The player's current unspent Status Points balance.
@@ -26,13 +76,12 @@ public interface IRpgStats {
     void addStatusPoints(int delta);
 
     /**
-     * @return The highest vanilla XP level the player has ever reached.
-     *         Used to prevent point farming exploits via death or Enchanting Tables.
+     * Legacy getter kept for backward compatibility with existing saves.
      */
     int getHighestLevelAchieved();
 
     /**
-     * Updates the highest vanilla XP level achieved by the player.
+     * Legacy setter kept for backward compatibility with existing saves.
      */
     void setHighestLevelAchieved(int level);
 
@@ -82,4 +131,3 @@ public interface IRpgStats {
      */
     void loadNBTData(CompoundTag nbt);
 }
-

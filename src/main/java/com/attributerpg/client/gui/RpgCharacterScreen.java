@@ -320,15 +320,34 @@ public class RpgCharacterScreen extends Screen {
                     player
             );
 
+            // RPG Level & EXP Bar Card below 3D preview
             int infoY = boxY + boxHeight + 4;
             int infoHeight = 32;
             drawBorderedBox(graphics, boxX, infoY, LEFT_BOX_WIDTH, infoHeight, COLOR_BG_SUBPANEL, COLOR_BORDER_SUBTLE);
 
-            String currentLvlText = "Current Lv: " + player.experienceLevel;
-            String peakLvlText = "Peak Lv: " + stats.getHighestLevelAchieved();
+            int rpgLvl = stats.getRpgLevel();
+            int curExp = stats.getRpgExp();
+            int neededExp = IRpgStats.getExpNeededForLevel(rpgLvl);
 
-            graphics.drawString(this.font, currentLvlText, boxX + 8, infoY + 6, COLOR_TEXT_PRIMARY, false);
-            graphics.drawString(this.font, peakLvlText, boxX + 8, infoY + 18, COLOR_TEXT_SECONDARY, false);
+            String levelText = "RPG Lv: " + rpgLvl;
+            String expText = "EXP: " + curExp + "/" + neededExp;
+
+            graphics.drawString(this.font, levelText, boxX + 8, infoY + 5, COLOR_TEXT_PRIMARY, true);
+
+            // Small progressive EXP progress bar
+            int barX = boxX + 8;
+            int barY = infoY + 16;
+            int barWidth = LEFT_BOX_WIDTH - 16;
+            int barHeight = 4;
+            float progress = Math.min(1.0F, Math.max(0.0F, (float) curExp / (float) neededExp));
+            int filledWidth = (int) (barWidth * progress);
+
+            graphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF181818);
+            if (filledWidth > 0) {
+                graphics.fill(barX, barY, barX + filledWidth, barY + barHeight, 0xFF55FF55);
+            }
+
+            graphics.drawString(this.font, expText, boxX + 8, infoY + 22, COLOR_TEXT_SECONDARY, false);
         }
     }
 

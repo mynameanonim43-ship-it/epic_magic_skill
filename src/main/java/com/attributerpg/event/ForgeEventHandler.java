@@ -9,7 +9,6 @@ import com.attributerpg.network.ModNetworking;
 import com.attributerpg.util.AttributeModifierHelper;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -38,8 +37,8 @@ import java.util.List;
 
 /**
  * Handles Forge gameplay events for:
- * 1. Capability attachment, cloning, and synchronization.
- * 2. Vanilla XP LevelChange hook granting configurable Status Points per new highest level achieved.
+ * 1. Independent RPG Level & EXP accumulation (mining, smelting, fishing, and killing mobs).
+ * 2. Capability attachment, cloning, and synchronization.
  * 3. Ranged (RNG) arrow/projectile speed scaling and ranged attack damage bonus.
  * 4. Luck (LUK) critical mob loot drop rate multiplier.
  */
@@ -63,54 +62,53 @@ public class ForgeEventHandler {
     }
 
     /**
-     * Hooks directly into the Vanilla Minecraft Experience/Level system.
-     * Grants Status Points every time a player's vanilla level increases past their
-     * previously recorded "Highest Level Achieved".
+     * Hooks directly into PlayerXpEvent.XpChange.
+     * Every time a player earns experience points from ANY source (mining, smelting, fishing, killing mobs),
+     * the exact amount is added to the player's independent RPG Experience.
+     * RPG Level never resets upon player death or when spending levels at an Enchanting Table or Anvil!
      */
     @SubscribeEvent
-    public static void onPlayerLevelChange(PlayerXpEvent.LevelChange event) {
+    public static void onPlayerXpChange(PlayerXpEvent.XpChange event) {
         Player player = event.getEntity();
-        if (player.level().isClientSide() || event.getLevels() <= 0) {
+        if (player.level().isClientSide() || event.getAmount() <= 0) {
             return;
         }
 
-        int currentLevel = player.experienceLevel;
-        int newLevel = currentLevel + event.getLevels();
-
         player.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
-            int highestAchieved = stats.getHighestLevelAchieved();
-            if (newLevel > highestAchieved) {
-                int newLevelsGained = newLevel - highestAchieved;
-                int pointsAwarded = newLevelsGained * RpgConfig.getStatusPointsPerLevel();
+            int levelsGained = stats.addRpgExp(event.getAmount());
+            if (levelsGained > 0 && player instanceof ServerPlayer serverPlayer) {
+                int pointsAwarded = levelsGained * RpgConfig.getStatusPointsPerLevel();
+                serverPlayer.displayClientMessage(
+                        Component.literal("[RPG] ")
+                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                                .append(Component.literal("RPG Level Up! Now Lv. " + stats.getRpgLevel() + " (+" + pointsAwarded + " Points) ")
+                                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                                .append(Component.literal("(Press 'O' to allocate)")
+                                        .withStyle(ChatFormatting.GRAY)),
+                        false
+                );
 
-                stats.addStatusPoints(pointsAwarded);
-                stats.setHighestLevelAchieved(newLevel);
+                serverPlayer.level().playSound(
+                        null,
+                        serverPlayer.getX(),
+                        serverPlayer.getY(),
+                        serverPlayer.getZ(),
+                        SoundEvents.PLAYER_LEVELUP,
+                        SoundSource.PLAYERS,
+                        0.75F,
+                        1.0F
+                );
+            }
 
-                if (player instanceof ServerPlayer serverPlayer) {
-                    serverPlayer.displayClientMessage(
-                            Component.literal("[RPG] ")
-                                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                                    .append(Component.literal("Level Up! +" + pointsAwarded + " Status Points ")
-                                            .withStyle(ChatFormatting.GREEN))
-                                    .append(Component.literal("(Total Available: " + stats.getStatusPoints() + " | Press 'O' to allocate)")
-                                            .withStyle(ChatFormatting.GRAY)),
-                            false
-                    );
-                    ModNetworking.syncRpgData(serverPlayer);
-                }
+            if (player instanceof ServerPlayer serverPlayer) {
+                ModNetworking.syncRpgData(serverPlayer);
             }
         });
     }
 
     /**
-     * Preserves capability data (Status Points, Highest Level Achieved, and Allocated Attributes)
-     * across player deaths AND End Portal / Free the End game completion credits transitions.
-     *
-     * Fix for "Menamatkan Minecraft seluruh stat hilang":
-     * When returning from The End via the Exit Portal, Minecraft fires PlayerEvent.Clone
-     * with isWasDeath() = false, but capabilities on the original entity may already be invalid
-     * or stored in serialized NBT. We use serializeNBT/loadNBTData as well as copyFrom
-     * to guarantee 100% data retention regardless of Forge version or revive state.
+     * Preserves capability data (RPG Level, RPG Exp, Status Points, and Allocated Attributes)
+     * across player deaths and End Portal transitions.
      */
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
@@ -141,11 +139,6 @@ public class ForgeEventHandler {
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
             serverPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
-                if (serverPlayer.experienceLevel > stats.getHighestLevelAchieved()) {
-                    int diff = serverPlayer.experienceLevel - stats.getHighestLevelAchieved();
-                    stats.addStatusPoints(diff * RpgConfig.getStatusPointsPerLevel());
-                    stats.setHighestLevelAchieved(serverPlayer.experienceLevel);
-                }
                 AttributeModifierHelper.applyAllModifiers(serverPlayer, stats);
             });
             ModNetworking.syncRpgData(serverPlayer);
