@@ -7,8 +7,10 @@ import com.attributerpg.capability.RpgStatsProvider;
 import com.attributerpg.config.RpgConfig;
 import com.attributerpg.network.ModNetworking;
 import com.attributerpg.util.AttributeModifierHelper;
+import com.mojang.logging.LogUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,8 +31,10 @@ import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerXpEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,14 +42,16 @@ import java.util.List;
 /**
  * Handles Forge gameplay events for:
  * 1. Independent RPG Level & EXP accumulation (mining, smelting, fishing, and killing mobs).
- * 2. Capability attachment, cloning, and synchronization.
+ * 2. Capability attachment, cloning (death / dimension change), and bidirectional synchronization.
  * 3. Ranged (RNG) arrow/projectile speed scaling and ranged attack damage bonus.
  * 4. Luck (LUK) critical mob loot drop rate multiplier.
  */
 @Mod.EventBusSubscriber(modid = AttributeRpgMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class ForgeEventHandler {
 
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final String PROJECTILE_BOOSTED_TAG = "attributerpg_rng_boosted";
+    private static final String PERSISTENT_RPG_TAG = "AttributeRPG_PersistentBackup";
 
     /**
      * Attaches the persistent {@link RpgStatsProvider} capability to all Player entities.
@@ -65,7 +71,6 @@ public class ForgeEventHandler {
      * Hooks directly into PlayerXpEvent.XpChange.
      * Every time a player earns experience points from ANY source (mining, smelting, fishing, killing mobs),
      * the exact amount is added to the player's independent RPG Experience.
-     * RPG Level never resets upon player death or when spending levels at an Enchanting Table or Anvil!
      */
     @SubscribeEvent
     public static void onPlayerXpChange(PlayerXpEvent.XpChange event) {
@@ -76,31 +81,36 @@ public class ForgeEventHandler {
 
         player.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
             int levelsGained = stats.addRpgExp(event.getAmount());
-            if (levelsGained > 0 && player instanceof ServerPlayer serverPlayer) {
-                int pointsAwarded = levelsGained * RpgConfig.getStatusPointsPerLevel();
-                serverPlayer.displayClientMessage(
-                        Component.literal("[RPG] ")
-                                .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                                .append(Component.literal("RPG Level Up! Now Lv. " + stats.getRpgLevel() + " (+" + pointsAwarded + " Points) ")
-                                        .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
-                                .append(Component.literal("(Press 'O' to allocate)")
-                                        .withStyle(ChatFormatting.GRAY)),
-                        false
-                );
-
-                serverPlayer.level().playSound(
-                        null,
-                        serverPlayer.getX(),
-                        serverPlayer.getY(),
-                        serverPlayer.getZ(),
-                        SoundEvents.PLAYER_LEVELUP,
-                        SoundSource.PLAYERS,
-                        0.75F,
-                        1.0F
-                );
-            }
-
             if (player instanceof ServerPlayer serverPlayer) {
+                // Keep backup tag updated on player's persistent Forge data
+                CompoundTag backup = new CompoundTag();
+                stats.saveNBTData(backup);
+                serverPlayer.getPersistentData().put(PERSISTENT_RPG_TAG, backup);
+
+                if (levelsGained > 0) {
+                    int pointsAwarded = levelsGained * RpgConfig.getStatusPointsPerLevel();
+                    serverPlayer.displayClientMessage(
+                            Component.literal("[RPG] ")
+                                    .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                                    .append(Component.literal("RPG Level Up! Now Lv. " + stats.getRpgLevel() + " (+" + pointsAwarded + " Points) ")
+                                            .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                                    .append(Component.literal("(Press 'O' to allocate)")
+                                            .withStyle(ChatFormatting.GRAY)),
+                            false
+                    );
+
+                    serverPlayer.level().playSound(
+                            null,
+                            serverPlayer.getX(),
+                            serverPlayer.getY(),
+                            serverPlayer.getZ(),
+                            SoundEvents.PLAYER_LEVELUP,
+                            SoundSource.PLAYERS,
+                            0.75F,
+                            1.0F
+                    );
+                }
+
                 ModNetworking.syncRpgData(serverPlayer);
             }
         });
@@ -108,47 +118,86 @@ public class ForgeEventHandler {
 
     /**
      * Preserves capability data (RPG Level, RPG Exp, Status Points, and Allocated Attributes)
-     * across player deaths and End Portal transitions.
+     * across player deaths and End Portal / Dimension transitions.
+     *
+     * Dual-Layer Persistence Strategy:
+     * 1. Primary: Direct capability transfer using original.reviveCaps() -> copyFrom().
+     * 2. Fallback: Forge Persistent Data CompoundTag (player.getPersistentData().get(PERSISTENT_RPG_TAG))
+     *    which Forge natively transfers during player respawn.
      */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onPlayerClone(PlayerEvent.Clone event) {
         Player original = event.getOriginal();
         Player newPlayer = event.getEntity();
 
+        boolean restored = false;
+
+        // Attempt 1: Direct Capability Transfer
         original.reviveCaps();
         try {
-            original.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(oldStats ->
-                    newPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(newStats -> {
-                        newStats.copyFrom(oldStats);
-                    })
-            );
+            var oldOpt = original.getCapability(RpgStatsProvider.RPG_STATS);
+            var newOpt = newPlayer.getCapability(RpgStatsProvider.RPG_STATS);
+            if (oldOpt.isPresent() && newOpt.isPresent()) {
+                IRpgStats oldStats = oldOpt.resolve().get();
+                IRpgStats newStats = newOpt.resolve().get();
+                newStats.copyFrom(oldStats);
+                restored = true;
+                LOGGER.debug("[AttributeRPG] Successfully transferred capability via onPlayerClone: Lv {}, Points {}",
+                        newStats.getRpgLevel(), newStats.getStatusPoints());
+            }
+        } catch (Throwable t) {
+            LOGGER.warn("[AttributeRPG] Error during direct capability transfer in onPlayerClone: {}", t.getMessage());
         } finally {
             original.invalidateCaps();
         }
 
-        // Apply attribute modifiers and synchronize to client
-        if (newPlayer instanceof ServerPlayer serverPlayer) {
-            newPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
-                AttributeModifierHelper.applyAllModifiers(serverPlayer, stats);
-            });
-            ModNetworking.syncRpgData(serverPlayer);
+        // Attempt 2: Fallback from Persistent Data
+        if (!restored || newPlayer.getCapability(RpgStatsProvider.RPG_STATS).map(s -> s.getRpgLevel() <= 1 && s.getStatusPoints() == 0).orElse(true)) {
+            if (original.getPersistentData().contains(PERSISTENT_RPG_TAG)) {
+                CompoundTag backup = original.getPersistentData().getCompound(PERSISTENT_RPG_TAG);
+                newPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
+                    stats.loadNBTData(backup);
+                    LOGGER.info("[AttributeRPG] Successfully restored capability from persistent data tag: Lv {}", stats.getRpgLevel());
+                });
+            }
         }
+
+        // Save current backup on new player
+        newPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
+            CompoundTag backup = new CompoundTag();
+            stats.saveNBTData(backup);
+            newPlayer.getPersistentData().put(PERSISTENT_RPG_TAG, backup);
+        });
     }
 
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
             serverPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
+                // If capability is blank but backup tag exists, restore it
+                if (stats.getRpgLevel() <= 1 && stats.getStatusPoints() == 0 && serverPlayer.getPersistentData().contains(PERSISTENT_RPG_TAG)) {
+                    stats.loadNBTData(serverPlayer.getPersistentData().getCompound(PERSISTENT_RPG_TAG));
+                }
                 AttributeModifierHelper.applyAllModifiers(serverPlayer, stats);
             });
             ModNetworking.syncRpgData(serverPlayer);
         }
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            AttributeModifierHelper.applyAllModifiers(serverPlayer);
+            serverPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
+                // Ensure stats are loaded and backup tag is refreshed
+                if (stats.getRpgLevel() <= 1 && stats.getStatusPoints() == 0 && serverPlayer.getPersistentData().contains(PERSISTENT_RPG_TAG)) {
+                    stats.loadNBTData(serverPlayer.getPersistentData().getCompound(PERSISTENT_RPG_TAG));
+                }
+                AttributeModifierHelper.applyAllModifiers(serverPlayer, stats);
+
+                CompoundTag backup = new CompoundTag();
+                stats.saveNBTData(backup);
+                serverPlayer.getPersistentData().put(PERSISTENT_RPG_TAG, backup);
+            });
             ModNetworking.syncRpgData(serverPlayer);
         }
     }
@@ -156,7 +205,9 @@ public class ForgeEventHandler {
     @SubscribeEvent
     public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
-            AttributeModifierHelper.applyAllModifiers(serverPlayer);
+            serverPlayer.getCapability(RpgStatsProvider.RPG_STATS).ifPresent(stats -> {
+                AttributeModifierHelper.applyAllModifiers(serverPlayer, stats);
+            });
             ModNetworking.syncRpgData(serverPlayer);
         }
     }

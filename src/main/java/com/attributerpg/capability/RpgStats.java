@@ -9,7 +9,8 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Default implementation of {@link IRpgStats} storing independent RPG Level, RPG Exp,
+ * Default implementation of {@link IRpgStats} storing independent RPG Level,
+ * RPG Exp,
  * Status Points, and allocated attribute levels.
  */
 public class RpgStats implements IRpgStats {
