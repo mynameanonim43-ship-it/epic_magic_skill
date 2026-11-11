@@ -1,5 +1,6 @@
 package com.attributerpg.config;
 
+import com.attributerpg.attribute.RpgAttributeType;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
@@ -19,6 +20,19 @@ public final class RpgConfig {
         // =========================================================================
         public static final ForgeConfigSpec.IntValue STATUS_POINTS_PER_LEVEL;
         public static final ForgeConfigSpec.IntValue MAX_ATTRIBUTE_CAP;
+        public static final ForgeConfigSpec.DoubleValue EXP_COST_BASE_MULTIPLIER;
+        public static final ForgeConfigSpec.DoubleValue EXP_COST_PER_LEVEL_INCREMENT;
+
+        // =========================================================================
+        // 1b. STARTING / BASE ATTRIBUTES SETTINGS
+        // =========================================================================
+        public static final ForgeConfigSpec.IntValue STARTING_CONSTITUTION;
+        public static final ForgeConfigSpec.IntValue STARTING_STRENGTH;
+        public static final ForgeConfigSpec.IntValue STARTING_RANGED;
+        public static final ForgeConfigSpec.IntValue STARTING_AGILITY;
+        public static final ForgeConfigSpec.IntValue STARTING_INTELLIGENCE;
+        public static final ForgeConfigSpec.IntValue STARTING_WISDOM;
+        public static final ForgeConfigSpec.IntValue STARTING_LUCK;
 
         // =========================================================================
         // 2. STRENGTH (STR) SETTINGS
@@ -92,6 +106,56 @@ public final class RpgConfig {
                                                 "Maximum number of points a player can allocate into a single RPG attribute.",
                                                 "Default: 999 | Range: 1 ~ 10000")
                                 .defineInRange("maxAttributeCap", 999, 1, 10000);
+
+                EXP_COST_BASE_MULTIPLIER = BUILDER
+                                .comment(
+                                                "Base multiplier applied to the Vanilla EXP needed to level up.",
+                                                "Setting this to 3.0 requires 3x the normal vanilla EXP curve to reach level ups.",
+                                                "Default: 3.0 | Range: 0.1 ~ 100.0")
+                                .defineInRange("expCostBaseMultiplier", 3.0D, 0.1D, 100.0D);
+
+                EXP_COST_PER_LEVEL_INCREMENT = BUILDER
+                                .comment(
+                                                "Additional difficulty scaling multiplier added per level to make higher levels progressively steeper.",
+                                                "Formula: VanillaExp * expCostBaseMultiplier * (1.0 + (level - 1) * expCostPerLevelIncrement)",
+                                                "Setting to 0.2 increases the required EXP steepness by +20% with each subsequent level.",
+                                                "Default: 0.2 | Range: 0.0 ~ 10.0")
+                                .defineInRange("expCostPerLevelIncrement", 0.2D, 0.0D, 10.0D);
+                BUILDER.pop();
+
+                // --- 1b. Starting / Base Attributes ---
+                BUILDER.push("starting_attributes");
+                BUILDER.comment(
+                                "Initial base attribute values granted to all players without spending status points.",
+                                "These act as the foundation stat floor (e.g. baseline health from CON) and cannot be lost via resets.");
+
+                STARTING_CONSTITUTION = BUILDER
+                                .comment("Initial base Constitution (CON) points. Default: 0 | Range: 0 ~ 1000")
+                                .defineInRange("startingConstitution", 0, 0, 1000);
+
+                STARTING_STRENGTH = BUILDER
+                                .comment("Initial base Strength (STR) points. Default: 0 | Range: 0 ~ 1000")
+                                .defineInRange("startingStrength", 0, 0, 1000);
+
+                STARTING_RANGED = BUILDER
+                                .comment("Initial base Ranged (RNG) points. Default: 0 | Range: 0 ~ 1000")
+                                .defineInRange("startingRanged", 0, 0, 1000);
+
+                STARTING_AGILITY = BUILDER
+                                .comment("Initial base Agility (AGI) points. Default: 0 | Range: 0 ~ 1000")
+                                .defineInRange("startingAgility", 0, 0, 1000);
+
+                STARTING_INTELLIGENCE = BUILDER
+                                .comment("Initial base Intelligence (INT) points. Default: 0 | Range: 0 ~ 1000")
+                                .defineInRange("startingIntelligence", 0, 0, 1000);
+
+                STARTING_WISDOM = BUILDER
+                                .comment("Initial base Wisdom (WIS) points. Default: 0 | Range: 0 ~ 1000")
+                                .defineInRange("startingWisdom", 0, 0, 1000);
+
+                STARTING_LUCK = BUILDER
+                                .comment("Initial base Luck (LUK) points. Default: 0 | Range: 0 ~ 1000")
+                                .defineInRange("startingLuck", 0, 0, 1000);
                 BUILDER.pop();
 
                 // --- 2. Strength (STR) ---
@@ -218,6 +282,57 @@ public final class RpgConfig {
 
         public static int getMaxAttributeCap() {
                 return SPEC.isLoaded() ? MAX_ATTRIBUTE_CAP.get() : 999;
+        }
+
+        public static double getExpCostBaseMultiplier() {
+                return SPEC.isLoaded() ? EXP_COST_BASE_MULTIPLIER.get() : 3.0D;
+        }
+
+        public static double getExpCostPerLevelIncrement() {
+                return SPEC.isLoaded() ? EXP_COST_PER_LEVEL_INCREMENT.get() : 0.2D;
+        }
+
+        public static int getStartingAttribute(RpgAttributeType type) {
+                if (!SPEC.isLoaded() || type == null) {
+                        return 0;
+                }
+                return switch (type) {
+                        case CON -> STARTING_CONSTITUTION.get();
+                        case STR -> STARTING_STRENGTH.get();
+                        case RNG -> STARTING_RANGED.get();
+                        case AGI -> STARTING_AGILITY.get();
+                        case INT -> STARTING_INTELLIGENCE.get();
+                        case WIS -> STARTING_WISDOM.get();
+                        case LUK -> STARTING_LUCK.get();
+                };
+        }
+
+        public static int getStartingConstitution() {
+                return SPEC.isLoaded() ? STARTING_CONSTITUTION.get() : 0;
+        }
+
+        public static int getStartingStrength() {
+                return SPEC.isLoaded() ? STARTING_STRENGTH.get() : 0;
+        }
+
+        public static int getStartingRanged() {
+                return SPEC.isLoaded() ? STARTING_RANGED.get() : 0;
+        }
+
+        public static int getStartingAgility() {
+                return SPEC.isLoaded() ? STARTING_AGILITY.get() : 0;
+        }
+
+        public static int getStartingIntelligence() {
+                return SPEC.isLoaded() ? STARTING_INTELLIGENCE.get() : 0;
+        }
+
+        public static int getStartingWisdom() {
+                return SPEC.isLoaded() ? STARTING_WISDOM.get() : 0;
+        }
+
+        public static int getStartingLuck() {
+                return SPEC.isLoaded() ? STARTING_LUCK.get() : 0;
         }
 
         public static double getStrAttackDamage() {

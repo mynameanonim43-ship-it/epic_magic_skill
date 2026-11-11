@@ -81,7 +81,7 @@ public class PacketApplyAllocations {
                     int cap = RpgConfig.getMaxAttributeCap();
                     int canAdd = Math.min(amount, Math.max(0, cap - current));
                     if (canAdd > 0 && stats.getStatusPoints() >= canAdd) {
-                        stats.setAttributeValue(type, current + canAdd);
+                        stats.setAllocatedPoints(type, stats.getAllocatedPoints(type) + canAdd);
                         stats.addStatusPoints(-canAdd);
                         successfullyAllocated += canAdd;
                     }

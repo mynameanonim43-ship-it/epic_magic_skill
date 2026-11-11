@@ -99,13 +99,29 @@ public class RpgStats implements IRpgStats {
     }
 
     @Override
-    public int getAttributeValue(RpgAttributeType type) {
+    public int getBaseAttributeValue(RpgAttributeType type) {
+        return RpgConfig.getStartingAttribute(type);
+    }
+
+    @Override
+    public int getAllocatedPoints(RpgAttributeType type) {
         return attributes.getOrDefault(type, 0);
     }
 
     @Override
+    public void setAllocatedPoints(RpgAttributeType type, int points) {
+        int maxAlloc = Math.max(0, RpgConfig.getMaxAttributeCap() - getBaseAttributeValue(type));
+        attributes.put(type, Math.max(0, Math.min(points, maxAlloc)));
+    }
+
+    @Override
+    public int getAttributeValue(RpgAttributeType type) {
+        return getBaseAttributeValue(type) + getAllocatedPoints(type);
+    }
+
+    @Override
     public void setAttributeValue(RpgAttributeType type, int value) {
-        attributes.put(type, Math.max(0, Math.min(value, RpgConfig.getMaxAttributeCap())));
+        setAllocatedPoints(type, value - getBaseAttributeValue(type));
     }
 
     @Override
@@ -121,7 +137,7 @@ public class RpgStats implements IRpgStats {
             return false;
         }
         this.statusPoints -= 1;
-        this.attributes.put(type, current + 1);
+        setAllocatedPoints(type, getAllocatedPoints(type) + 1);
         return true;
     }
 
@@ -129,7 +145,7 @@ public class RpgStats implements IRpgStats {
     public int resetPoints() {
         int refunded = 0;
         for (RpgAttributeType type : RpgAttributeType.values()) {
-            refunded += getAttributeValue(type);
+            refunded += getAllocatedPoints(type);
             attributes.put(type, 0);
         }
         this.statusPoints += refunded;
@@ -138,7 +154,11 @@ public class RpgStats implements IRpgStats {
 
     @Override
     public Map<RpgAttributeType, Integer> getAllAttributes() {
-        return Collections.unmodifiableMap(attributes);
+        Map<RpgAttributeType, Integer> map = new EnumMap<>(RpgAttributeType.class);
+        for (RpgAttributeType type : RpgAttributeType.values()) {
+            map.put(type, getAttributeValue(type));
+        }
+        return Collections.unmodifiableMap(map);
     }
 
     @Override
@@ -148,7 +168,7 @@ public class RpgStats implements IRpgStats {
         this.statusPoints = source.getStatusPoints();
         this.highestLevelAchieved = source.getHighestLevelAchieved();
         for (RpgAttributeType type : RpgAttributeType.values()) {
-            this.attributes.put(type, source.getAttributeValue(type));
+            this.attributes.put(type, source.getAllocatedPoints(type));
         }
     }
 
@@ -161,7 +181,7 @@ public class RpgStats implements IRpgStats {
 
         CompoundTag attrTag = new CompoundTag();
         for (RpgAttributeType type : RpgAttributeType.values()) {
-            attrTag.putInt(type.getSerializedName(), getAttributeValue(type));
+            attrTag.putInt(type.getSerializedName(), getAllocatedPoints(type));
         }
         nbt.put(NBT_ATTRIBUTES_TAG, attrTag);
     }

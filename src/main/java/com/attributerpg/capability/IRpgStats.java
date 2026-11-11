@@ -1,6 +1,7 @@
 package com.attributerpg.capability;
 
 import com.attributerpg.attribute.RpgAttributeType;
+import com.attributerpg.config.RpgConfig;
 import net.minecraft.nbt.CompoundTag;
 
 import java.util.Map;
@@ -42,22 +43,29 @@ public interface IRpgStats {
 
     /**
      * Calculates the experience required to level up from the specified RPG Level.
-     * Matches Vanilla Minecraft's progressive scaling (each level gets progressively harder):
-     * - Level 1 to 15:  2 * Level + 7
-     * - Level 16 to 30: 5 * Level - 38
-     * - Level 31+:      9 * Level - 158
+     * Uses Vanilla Minecraft's progressive base scaling, multiplied by the configured
+     * Base Multiplier (default: 3.0x normal vanilla) and compound/steepness increment
+     * per level (default: +0.2x extra steepness per level):
+     * Formula: VanillaExp * BaseMultiplier * (1.0 + (level - 1) * PerLevelIncrement)
      */
     static int getExpNeededForLevel(int level) {
         if (level <= 0) {
-            return 7;
+            level = 1;
         }
+        int vanillaExp;
         if (level <= 15) {
-            return 2 * level + 7;
+            vanillaExp = 2 * level + 7;
         } else if (level <= 30) {
-            return 5 * level - 38;
+            vanillaExp = 5 * level - 38;
         } else {
-            return 9 * level - 158;
+            vanillaExp = 9 * level - 158;
         }
+
+        double baseMult = RpgConfig.getExpCostBaseMultiplier();
+        double perLevelInc = RpgConfig.getExpCostPerLevelIncrement();
+        double totalMult = baseMult * (1.0D + Math.max(0, level - 1) * perLevelInc);
+
+        return Math.max(1, (int) Math.round(vanillaExp * totalMult));
     }
 
     /**
@@ -86,12 +94,27 @@ public interface IRpgStats {
     void setHighestLevelAchieved(int level);
 
     /**
-     * @return The number of points allocated to the specified RPG attribute.
+     * @return The starting base value for the specified RPG attribute from config.
+     */
+    int getBaseAttributeValue(RpgAttributeType type);
+
+    /**
+     * @return The points manually allocated by the player into the specified RPG attribute.
+     */
+    int getAllocatedPoints(RpgAttributeType type);
+
+    /**
+     * Sets the manually allocated points for a specific RPG attribute.
+     */
+    void setAllocatedPoints(RpgAttributeType type, int points);
+
+    /**
+     * @return The total effective value for the specified RPG attribute (Base + Allocated).
      */
     int getAttributeValue(RpgAttributeType type);
 
     /**
-     * Sets the allocated value for a specific RPG attribute.
+     * Sets the total effective value for a specific RPG attribute.
      */
     void setAttributeValue(RpgAttributeType type, int value);
 
